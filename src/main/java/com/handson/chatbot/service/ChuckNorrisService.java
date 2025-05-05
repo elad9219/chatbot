@@ -22,11 +22,9 @@ public class ChuckNorrisService {
 
     public String getJokeByCategory(String category) {
         try {
-            // מנסה לקבל בדיחה בספר קטגוריה
             JsonNode node = rest.getForObject(BY_CATEGORY_URL, JsonNode.class, category);
             return node.get("value").asText();
         } catch (HttpClientErrorException.NotFound nf) {
-            // אם אין קטגוריה כזו, מפעיל fallback לחיפוש חופשי
             return searchJokes(category);
         }
     }

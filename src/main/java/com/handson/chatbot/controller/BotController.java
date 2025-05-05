@@ -50,14 +50,12 @@ public class BotController {
             DetectIntentResponse response = sessionsClient.detectIntent(session, queryInput);
             QueryResult qr = response.getQueryResult();
 
-            // אם הפרמטרים עדיין לא מלאים, מחזיר את ההנחיה שהגדרת ב־Dialogflow
             if (!qr.getAllRequiredParamsPresent()) {
                 return ResponseEntity.ok(BotResponse.of(qr.getFulfillmentText()));
             }
 
             String intentName = qr.getIntent().getDisplayName();
 
-            // 1. בדיחות
             if ("GetJoke".equals(intentName)) {
                 String category = qr.getParameters()
                         .getFieldsOrDefault("query", Value.newBuilder().build())
@@ -68,7 +66,6 @@ public class BotController {
                 return ResponseEntity.ok(BotResponse.of(joke));
             }
 
-            // 2. פרטי עיר
             else if ("GetCityInfo".equals(intentName)) {
                 String cityName = qr.getParameters()
                         .getFieldsOrDefault("name", Value.newBuilder().build())
@@ -80,7 +77,6 @@ public class BotController {
                 }
 
                 ObjectMapper mapper = new ObjectMapper();
-                // הפורמטינג היפה: שורה חדשה לכל שדה, בלי פסיקים בתוך המספר
                 String pretty = mapper
                         .writerWithDefaultPrettyPrinter()
                         .writeValueAsString(info);
@@ -88,12 +84,10 @@ public class BotController {
                 return ResponseEntity.ok(BotResponse.of(pretty));
             }
 
-            // ברירת מחדל: כל מה שהגדרת ב־Dialogflow
             return ResponseEntity.ok(BotResponse.of(qr.getFulfillmentText()));
         }
     }
 
-    // --- DTOs ---
 
     public static class BotRequest {
         private String session;

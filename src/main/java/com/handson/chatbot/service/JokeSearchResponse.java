@@ -8,7 +8,6 @@ import java.util.List;
 public class JokeSearchResponse {
     private List<JokeResponse> result;
 
-    // Getter and Setter
     public List<JokeResponse> getResult() {
         return result;
     }

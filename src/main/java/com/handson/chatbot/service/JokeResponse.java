@@ -8,7 +8,6 @@ import java.util.List;
 public class JokeResponse {
     private String value;
 
-    // Getter and Setter
     public String getValue() {
         return value;
     }

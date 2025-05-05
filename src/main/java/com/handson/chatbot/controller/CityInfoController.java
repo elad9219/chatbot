@@ -21,7 +21,6 @@ public class CityInfoController {
         try {
             return cityInfoService.getCityInfo(cityName);
         } catch (Exception e) {
-            // Handle the exception and return a meaningful response
             e.printStackTrace();
             return null;
         }

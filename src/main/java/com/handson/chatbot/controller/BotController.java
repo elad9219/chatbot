@@ -4,8 +4,11 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.cloud.dialogflow.v2.*;
 import com.google.protobuf.Value;
+import com.handson.chatbot.enumCategories.JokeCategory;
 import com.handson.chatbot.service.ChuckNorrisService;
 import com.handson.chatbot.service.CityInfoService;
+import io.swagger.annotations.ApiOperation;
+import io.swagger.annotations.ApiParam;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -26,6 +29,28 @@ public class BotController {
                          CityInfoService   cityInfoService) {
         this.chuckNorrisService = chuckNorrisService;
         this.cityInfoService   = cityInfoService;
+    }
+
+    @GetMapping("/random")
+    @ApiOperation(value = "Get a random Chuck Norris joke")
+    public String getRandomJoke() {
+        return chuckNorrisService.getRandomJoke();
+    }
+
+    @GetMapping("/random/{category}")
+    @ApiOperation(value = "Get a random Chuck Norris joke by category")
+    public String getJokeByCategory(
+            @ApiParam(value = "Category of the joke", required = true, allowableValues = "ANIMAL, CAREER, CELEBRITY, DEV, FASHION, FOOD, HISTORY, MONEY, MOVIE, MUSIC, POLITICAL, RELIGION, SCIENCE, SPORT, TRAVEL")
+            @PathVariable JokeCategory category) {
+        return chuckNorrisService.getJokeByCategory(category.toString());
+    }
+
+    @GetMapping("/search")
+    @ApiOperation(value = "Search Chuck Norris jokes by query")
+    public String searchJokes(
+            @ApiParam(value = "Search query for the joke", required = true)
+            @RequestParam String query) {
+        return chuckNorrisService.searchJokes(query);
     }
 
     @PostMapping

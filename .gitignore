@@ -37,3 +37,6 @@ credentials/*.json
 
 # node
 /node_modules/
+
+credentials/dialogflow-service.json
+

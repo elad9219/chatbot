@@ -9,6 +9,7 @@ import com.handson.chatbot.service.ChuckNorrisService;
 import com.handson.chatbot.service.CityInfoService;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -45,12 +46,29 @@ public class BotController {
         return chuckNorrisService.getJokeByCategory(category.toString());
     }
 
+
     @GetMapping("/search")
     @ApiOperation(value = "Search Chuck Norris jokes by query")
     public String searchJokes(
             @ApiParam(value = "Search query for the joke", required = true)
             @RequestParam String query) {
         return chuckNorrisService.searchJokes(query);
+    }
+
+    @GetMapping("/city")
+    @ApiOperation(value = "Get city info by name")
+    public ResponseEntity<String> getCityInfo(
+            @ApiParam(value = "Name of the city", required = true)
+            @RequestParam String name) throws Exception {
+        JsonNode info = cityInfoService.getCityInfo(name);
+        if (info == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body("City information not found");
+        }
+        ObjectMapper mapper = new ObjectMapper();
+        String pretty = mapper.writerWithDefaultPrettyPrinter()
+                .writeValueAsString(info);
+        return ResponseEntity.ok(pretty);
     }
 
     @PostMapping

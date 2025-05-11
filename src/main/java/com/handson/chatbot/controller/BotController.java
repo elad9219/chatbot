@@ -16,6 +16,15 @@ import org.springframework.web.bind.annotation.*;
 import java.io.IOException;
 import java.util.UUID;
 
+@CrossOrigin(
+        origins = {
+                "http://localhost:3000",
+                "https://bot.runmydocker-app.com"
+        },
+        allowedHeaders = "*",
+        methods = { RequestMethod.GET, RequestMethod.POST, RequestMethod.OPTIONS }
+)
+
 @RestController
 @RequestMapping("/bot")
 public class BotController {

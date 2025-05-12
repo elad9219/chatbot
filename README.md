@@ -54,6 +54,10 @@ This project is a chatbot application that allows users to interact with a conve
 
 ## Screenshots
 
+https://imgur.com/RyDCL1q
+
+
+https://imgur.com/pAGJQVq
 
 
 ## Links

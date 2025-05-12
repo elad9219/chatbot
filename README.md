@@ -54,10 +54,10 @@ This project is a chatbot application that allows users to interact with a conve
 
 ## Screenshots
 
-https://imgur.com/RyDCL1q
+![image](https://github.com/user-attachments/assets/a32e880b-7683-48cd-9039-9cdcffcb9de1)
 
 
-https://imgur.com/pAGJQVq
+![image](https://github.com/user-attachments/assets/70f2bfb4-1a51-4027-bcd2-3552bd9f3264)
 
 
 ## Links

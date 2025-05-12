@@ -49,7 +49,7 @@ This project is a chatbot application that allows users to interact with a conve
 - Type messages like:
   - "Hi" → Get a friendly greeting.
   - "Tell me a joke" → Receive a random joke from chucknorris.io API.
-  - "Tell me about Tel Aviv" → Get information about the specified city from the City API.
+  - "City of Paris" → Get information about the specified city from the City API.
 - First-time users will see helpful prompts to guide them on what to ask.
 
 ## Screenshots

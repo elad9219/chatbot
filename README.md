@@ -48,14 +48,13 @@ This project is a chatbot application that allows users to interact with a conve
 - Access the chatbot via the web interface at `http://localhost:3000` (or the deployed URL: [https://bot.runmydocker-app.com/](https://bot.runmydocker-app.com/)).
 - Type messages like:
   - "Hi" → Get a friendly greeting.
-  - "Tell me a joke" → Receive a random joke from the Jokes API.
-  - "Tell me about Tel Aviv" → Get information about the specified city from the City Information API.
+  - "Tell me a joke" → Receive a random joke from chucknorris.io API.
+  - "Tell me about Tel Aviv" → Get information about the specified city from the City API.
 - First-time users will see helpful prompts to guide them on what to ask.
 
 ## Screenshots
 
-![Chatbot Interface](URL_TO_IMAGE)
-![Example Interaction](URL_TO_IMAGE)
+
 
 ## Links
 

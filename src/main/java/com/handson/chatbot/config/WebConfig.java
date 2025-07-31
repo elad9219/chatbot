@@ -7,19 +7,20 @@ import org.springframework.web.servlet.config.annotation.*;
 public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/bot/**")    // כל קריאה ל־/bot/…
+        registry.addMapping("/bot/**")
                 .allowedOrigins(
                         "http://localhost:3000",
-                        "https://bot.runmydocker-app.com"
+                        "https://bot.runmydocker-app.com",
+                        "https://aichat.runmydocker-app.com"
                 )
                 .allowedMethods("GET","POST","OPTIONS")
                 .allowedHeaders("*");
 
-        // לתפוס גם את ה-OPTIONS ל־/bot בלי הסלאש:
         registry.addMapping("/bot")
                 .allowedOrigins(
                         "http://localhost:3000",
-                        "https://bot.runmydocker-app.com"
+                        "https://bot.runmydocker-app.com",
+                        "https://aichat.runmydocker-app.com"
                 )
                 .allowedMethods("OPTIONS")
                 .allowedHeaders("*");

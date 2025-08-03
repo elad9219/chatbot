@@ -1,12 +1,15 @@
 # Chatbot Project
 
 
-Live Project: https://bot.runmydocker-app.com/
-
-
-## Description
-
 This project is a chatbot application that allows users to interact with a conversational agent. The chatbot can respond to predefined queries, fetch jokes from an external API, and provide information about cities using another external API. It leverages natural language processing through Dialogflow to understand and process user inputs, offering a seamless and engaging user experience.
+
+
+## Links
+
+- **Live Project**: [https://aichat.runmydocker-app.com/](https://aichat.runmydocker-app.com/)
+- **Swagger UI**: [https://aichat.runmydocker-app.com/swagger-ui.html](https://aichat.runmydocker-app.com/swagger-ui.html)
+- **Backend Repository**: [https://github.com/elad9219/chatbot](https://github.com/elad9219/chatbot)
+- **Frontend Repository**: [https://github.com/elad9219/chatbot-frontend](https://github.com/elad9219/chatbot-frontend)
 
 ## Features
 
@@ -62,11 +65,3 @@ This project is a chatbot application that allows users to interact with a conve
 
 
 ![image](https://github.com/user-attachments/assets/70f2bfb4-1a51-4027-bcd2-3552bd9f3264)
-
-
-## Links
-
-- **Live Project**: [https://bot.runmydocker-app.com/](https://bot.runmydocker-app.com/)
-- **Swagger UI**: [https://bot.runmydocker-app.com/swagger-ui.html](https://bot.runmydocker-app.com/swagger-ui.html)
-- **Backend Repository**: [https://github.com/elad9219/chatbot](https://github.com/elad9219/chatbot)
-- **Frontend Repository**: [https://github.com/elad9219/chatbot-frontend](https://github.com/elad9219/chatbot-frontend)

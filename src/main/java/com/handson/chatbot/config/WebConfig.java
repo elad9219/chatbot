@@ -11,7 +11,8 @@ public class WebConfig implements WebMvcConfigurer {
                 .allowedOrigins(
                         "http://localhost:3000",
                         "https://bot.runmydocker-app.com",
-                        "https://aichat.runmydocker-app.com"
+                        "https://aichat.runmydocker-app.com",
+                        "https://eaichat.vercel.app/"
                 )
                 .allowedMethods("GET","POST","OPTIONS")
                 .allowedHeaders("*");
@@ -20,7 +21,8 @@ public class WebConfig implements WebMvcConfigurer {
                 .allowedOrigins(
                         "http://localhost:3000",
                         "https://bot.runmydocker-app.com",
-                        "https://aichat.runmydocker-app.com"
+                        "https://aichat.runmydocker-app.com",
+                        "https://eaichat.vercel.app/"
                 )
                 .allowedMethods("OPTIONS")
                 .allowedHeaders("*");

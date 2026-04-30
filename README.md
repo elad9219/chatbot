@@ -7,7 +7,7 @@ This project is a chatbot application that allows users to interact with a conve
 ## Links
 
 - **Live Project**: [https://eaichat.vercel.app/](https://eaichat.vercel.app/)
-- **Swagger UI**: [https://eaichat.vercel.app/swagger-ui.html](https://eaichat.vercel.app/swagger-ui.html)
+- **Swagger UI**: [https://aichat.runmydocker-app.com/swagger-ui.html](https://aichat.runmydocker-app.com/swagger-ui.html)
 - **Backend Repository**: [https://github.com/elad9219/chatbot](https://github.com/elad9219/chatbot)
 - **Frontend Repository**: [https://github.com/elad9219/chatbot-frontend](https://github.com/elad9219/chatbot-frontend)
 

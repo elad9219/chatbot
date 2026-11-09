@@ -1,7 +1,6 @@
 package com.handson.chatbot.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.cloud.dialogflow.v2.*;
 import com.google.protobuf.Value;
 import com.handson.chatbot.enumCategories.JokeCategory;
@@ -12,8 +11,11 @@ import io.swagger.annotations.ApiParam;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.server.ResponseStatusException;
 
-import java.io.IOException;
+import java.net.SocketTimeoutException;
 import java.util.UUID;
 
 @CrossOrigin(
@@ -31,6 +33,9 @@ public class BotController {
 
     private static final String PROJECT_ID    = "elad-chatbot-dsci";
     private static final String LANGUAGE_CODE = "en-US";
+
+    private static final String CITY_LOOKUP_UNAVAILABLE = "City information is temporarily unavailable. Please try again later.";
+    private static final String CITY_LOOKUP_TIMEOUT = "The city lookup timed out. Please try again.";
 
     private final ChuckNorrisService chuckNorrisService;
     private final CityInfoService   cityInfoService;
@@ -68,16 +73,50 @@ public class BotController {
     @ApiOperation(value = "Get city info by name")
     public ResponseEntity<String> getCityInfo(
             @ApiParam(value = "Name of the city", required = true)
-            @RequestParam String name) throws Exception {
-        JsonNode info = cityInfoService.getCityInfo(name);
-        if (info == null) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body("City information not found");
+            @RequestParam String name) {
+        try {
+            JsonNode info = lookupCity(name);
+            if (info == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body("City information not found");
+            }
+            return ResponseEntity.ok(info.toPrettyString());
+        } catch (ResponseStatusException exception) {
+            return ResponseEntity.status(exception.getStatus()).body(exception.getReason());
         }
-        ObjectMapper mapper = new ObjectMapper();
-        String pretty = mapper.writerWithDefaultPrettyPrinter()
-                .writeValueAsString(info);
-        return ResponseEntity.ok(pretty);
+    }
+
+    private JsonNode lookupCity(String cityName) {
+        JsonNode info;
+        try {
+            info = cityInfoService.getCityInfo(cityName);
+        } catch (ResourceAccessException exception) {
+            if (exception.getMostSpecificCause() instanceof SocketTimeoutException) {
+                throw new ResponseStatusException(HttpStatus.GATEWAY_TIMEOUT, CITY_LOOKUP_TIMEOUT);
+            }
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, CITY_LOOKUP_UNAVAILABLE);
+        } catch (RestClientException exception) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, CITY_LOOKUP_UNAVAILABLE);
+        } catch (IllegalStateException exception) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, CITY_LOOKUP_UNAVAILABLE);
+        }
+
+        if (info == null || info.isNull()) {
+            return null;
+        }
+        if (!info.isArray()) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, CITY_LOOKUP_UNAVAILABLE);
+        }
+        return info.isEmpty() ? null : info;
+    }
+
+    BotResponse cityReply(String cityName) {
+        try {
+            JsonNode info = lookupCity(cityName);
+            return BotResponse.of(info == null ? "City not found. Try another city name." : info.toPrettyString());
+        } catch (ResponseStatusException exception) {
+            return BotResponse.of(exception.getReason());
+        }
     }
 
     @PostMapping
@@ -122,18 +161,7 @@ public class BotController {
                 String cityName = qr.getParameters()
                         .getFieldsOrDefault("name", Value.newBuilder().build())
                         .getStringValue();
-                JsonNode info = cityInfoService.getCityInfo(cityName);
-
-                if (info == null) {
-                    return ResponseEntity.ok(BotResponse.of("City not found"));
-                }
-
-                ObjectMapper mapper = new ObjectMapper();
-                String pretty = mapper
-                        .writerWithDefaultPrettyPrinter()
-                        .writeValueAsString(info);
-
-                return ResponseEntity.ok(BotResponse.of(pretty));
+                return ResponseEntity.ok(cityReply(cityName));
             }
 
             return ResponseEntity.ok(BotResponse.of(qr.getFulfillmentText()));

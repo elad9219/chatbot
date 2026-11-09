@@ -1,38 +1,47 @@
 package com.handson.chatbot.service;
 
-
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
+
+import java.net.URI;
+import java.util.List;
 
 @Service
 public class CityInfoService {
 
-    private static final String API_URL = "https://api.api-ninjas.com/v1/city?name=";
-    private static final String API_KEY = "CLsEYJt7myeMiBCzInEoKT4wy6a9lWdlRDfI6PzI"; 
+    private static final String API_URL = "https://api.api-ninjas.com/v1/city";
 
-    public JsonNode getCityInfo(String cityName) throws Exception {
-        // Encode the city name to handle spaces and special characters
-        String encodedCityName = URLEncoder.encode(cityName, StandardCharsets.UTF_8.toString());
-        URL url = new URL(API_URL + encodedCityName);
-        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-        connection.setRequestProperty("accept", "application/json");
-        connection.setRequestProperty("X-Api-Key", API_KEY);
+    private final RestTemplate restTemplate;
+    private final String apiKey;
 
-        int responseCode = connection.getResponseCode();
-        if (responseCode != 200) {
-            throw new IOException("Failed to fetch city info: " + responseCode);
+    public CityInfoService(RestTemplate restTemplate, @Value("${city.api.key:}") String apiKey) {
+        this.restTemplate = restTemplate;
+        this.apiKey = apiKey;
+    }
+
+    public JsonNode getCityInfo(String cityName) {
+        if (apiKey.isBlank()) {
+            throw new IllegalStateException("City lookup is not configured");
         }
 
-        InputStream responseStream = connection.getInputStream();
-        ObjectMapper mapper = new ObjectMapper();
-        return mapper.readTree(responseStream);
+        URI uri = UriComponentsBuilder.fromHttpUrl(API_URL)
+                .queryParam("name", "{cityName}")
+                .encode()
+                .buildAndExpand(cityName)
+                .toUri();
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setAccept(List.of(MediaType.APPLICATION_JSON));
+        headers.set("X-Api-Key", apiKey);
+
+        return restTemplate.exchange(uri, HttpMethod.GET, new HttpEntity<Void>(headers), JsonNode.class)
+                .getBody();
     }
 }
-

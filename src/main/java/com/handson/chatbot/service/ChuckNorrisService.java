@@ -9,11 +9,15 @@ import org.springframework.web.client.RestTemplate;
 @Service
 public class ChuckNorrisService {
 
-    private final RestTemplate rest = new RestTemplate();
-
     private static final String RANDOM_URL      = "https://api.chucknorris.io/jokes/random";
     private static final String BY_CATEGORY_URL = "https://api.chucknorris.io/jokes/random?category={category}";
     private static final String SEARCH_URL      = "https://api.chucknorris.io/jokes/search?query={query}";
+
+    private final RestTemplate rest;
+
+    public ChuckNorrisService(RestTemplate rest) {
+        this.rest = rest;
+    }
 
     public String getRandomJoke() {
         JsonNode node = rest.getForObject(RANDOM_URL, JsonNode.class);

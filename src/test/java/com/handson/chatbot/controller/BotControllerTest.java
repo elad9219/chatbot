@@ -1,24 +1,30 @@
 package com.handson.chatbot.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.cloud.dialogflow.v2.Intent;
+import com.google.cloud.dialogflow.v2.QueryResult;
 import com.handson.chatbot.service.ChuckNorrisService;
 import com.handson.chatbot.service.CityInfoService;
+import com.handson.chatbot.service.TmdbMovieService;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.ResourceAccessException;
 
 import java.net.SocketTimeoutException;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-class BotControllerCityTest {
+class BotControllerTest {
 
     private final ObjectMapper mapper = new ObjectMapper();
     private final CityInfoService cities = mock(CityInfoService.class);
-    private final BotController controller = new BotController(mock(ChuckNorrisService.class), cities);
+    private final TmdbMovieService movies = mock(TmdbMovieService.class);
+    private final BotController controller = new BotController(mock(ChuckNorrisService.class), cities, movies);
 
     @Test
     void preservesCityResultsInBothPaths() throws Exception {
@@ -58,5 +64,37 @@ class BotControllerCityTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.GATEWAY_TIMEOUT);
         assertThat(controller.cityReply("Paris").getFulfillmentText())
                 .isEqualTo("The city lookup timed out. Please try again.");
+    }
+
+    @Test
+    void routesDiscoveryAndRefinementWithExclusiveRuntimeLimits() {
+        when(movies.findComedies(99)).thenReturn(List.of());
+        when(movies.findComedies(89)).thenReturn(List.of());
+
+        assertThat(controller.replyTo(movieIntent("DiscoverShortComedies")).getFulfillmentText())
+                .contains("under 100 minutes");
+        assertThat(controller.replyTo(movieIntent("RefineShortComedies")).getFulfillmentText())
+                .contains("under 90 minutes");
+        verify(movies).findComedies(99);
+        verify(movies).findComedies(89);
+    }
+
+    @Test
+    void handlesMovieProviderRateLimitsWithoutExposingDetails() {
+        when(movies.findComedies(99)).thenThrow(
+                HttpClientErrorException.create(HttpStatus.TOO_MANY_REQUESTS, "Provider details",
+                        org.springframework.http.HttpHeaders.EMPTY, new byte[0], null));
+
+        var response = controller.replyTo(movieIntent("DiscoverShortComedies"));
+
+        assertThat(response.getFulfillmentText()).isEqualTo("The movie service is busy. Please try again in a moment.");
+        assertThat(response.getMovies()).isNull();
+    }
+
+    private QueryResult movieIntent(String intentName) {
+        return QueryResult.newBuilder()
+                .setAllRequiredParamsPresent(true)
+                .setIntent(Intent.newBuilder().setDisplayName(intentName))
+                .build();
     }
 }

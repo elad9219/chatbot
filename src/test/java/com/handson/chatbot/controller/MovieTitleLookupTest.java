@@ -51,7 +51,7 @@ class MovieTitleLookupTest {
     }
 
     @Test
-    void explainsWhenNoTitleMatches() {
+    void offersToStartAnotherSearchWhenNoTitleMatches() {
         tmdb.expect(requestTo("https://api.themoviedb.org/3/search/movie"
                         + "?query=Unknown&include_adult=false&language=en-US"))
                 .andRespond(withSuccess("{\"results\":[]}", MediaType.APPLICATION_JSON));
@@ -60,6 +60,7 @@ class MovieTitleLookupTest {
 
         assertThat(response.getFulfillmentText()).contains("couldn't find a movie");
         assertThat(response.getMovies()).isNull();
+        assertThat(response.getSuggestedReply()).isEqualTo("Find a movie by title");
         tmdb.verify();
     }
 

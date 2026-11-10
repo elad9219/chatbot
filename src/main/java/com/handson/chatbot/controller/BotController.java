@@ -197,7 +197,8 @@ public class BotController {
     private BotResponse comedyReply(int underMinutes, String suggestedReply) {
         return movieReply(() -> movieService.findComedies(underMinutes - 1),
                 "Here are some comedies under " + underMinutes + " minutes.",
-                "I couldn't find any comedies under " + underMinutes + " minutes.", suggestedReply);
+                BotResponse.of("I couldn't find any comedies under " + underMinutes + " minutes."),
+                suggestedReply);
     }
 
     private BotResponse titleReply(String title) {
@@ -210,14 +211,16 @@ public class BotController {
 
         return movieReply(() -> movieService.findByTitle(title),
                 "Here are the movie matches I found.",
-                "I couldn't find a movie with that title. Try a different title.", null);
+                new BotResponse("I couldn't find a movie with that title. Try a different title.",
+                        null, "Find a movie by title"),
+                null);
     }
 
     private BotResponse movieReply(Supplier<List<MovieSummary>> lookup, String successText,
-                                   String emptyText, String suggestedReply) {
+                                   BotResponse emptyReply, String suggestedReply) {
         try {
             List<MovieSummary> movies = lookup.get();
-            return movies.isEmpty() ? BotResponse.of(emptyText) : new BotResponse(successText, movies, suggestedReply);
+            return movies.isEmpty() ? emptyReply : new BotResponse(successText, movies, suggestedReply);
         } catch (HttpClientErrorException.TooManyRequests exception) {
             return BotResponse.of("The movie service is busy. Please try again in a moment.");
         } catch (RestClientException | IllegalStateException exception) {

@@ -22,6 +22,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.net.SocketTimeoutException;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Supplier;
 
 @CrossOrigin(
         origins = {
@@ -172,6 +173,10 @@ public class BotController {
                 return comedyReply(100, "Under 90 minutes");
             case "RefineShortComedies":
                 return comedyReply(90, null);
+            case "FindMovieByTitle":
+                return titleReply(result.getParameters()
+                        .getFieldsOrDefault("movieTitle", Value.getDefaultInstance())
+                        .getStringValue().strip());
             case "GetJoke":
                 String category = result.getParameters()
                         .getFieldsOrDefault("query", Value.getDefaultInstance())
@@ -190,17 +195,33 @@ public class BotController {
     }
 
     private BotResponse comedyReply(int underMinutes, String suggestedReply) {
+        return movieReply(() -> movieService.findComedies(underMinutes - 1),
+                "Here are some comedies under " + underMinutes + " minutes.",
+                "I couldn't find any comedies under " + underMinutes + " minutes.", suggestedReply);
+    }
+
+    private BotResponse titleReply(String title) {
+        if (title.isEmpty()) {
+            return BotResponse.of("What movie title should I look up?");
+        }
+        if (title.length() > 150) {
+            return BotResponse.of("Please enter a shorter movie title.");
+        }
+
+        return movieReply(() -> movieService.findByTitle(title),
+                "Here are the movie matches I found.",
+                "I couldn't find a movie with that title. Try a different title.", null);
+    }
+
+    private BotResponse movieReply(Supplier<List<MovieSummary>> lookup, String successText,
+                                   String emptyText, String suggestedReply) {
         try {
-            List<MovieSummary> movies = movieService.findComedies(underMinutes - 1);
-            if (movies.isEmpty()) {
-                return BotResponse.of("I couldn't find any comedies under " + underMinutes + " minutes.");
-            }
-            return new BotResponse("Here are some comedies under " + underMinutes + " minutes.",
-                    movies, suggestedReply);
+            List<MovieSummary> movies = lookup.get();
+            return movies.isEmpty() ? BotResponse.of(emptyText) : new BotResponse(successText, movies, suggestedReply);
         } catch (HttpClientErrorException.TooManyRequests exception) {
             return BotResponse.of("The movie service is busy. Please try again in a moment.");
         } catch (RestClientException | IllegalStateException exception) {
-            return BotResponse.of("Movie recommendations are temporarily unavailable. Please try again later.");
+            return BotResponse.of("The movie service is temporarily unavailable. Please try again later.");
         }
     }
 

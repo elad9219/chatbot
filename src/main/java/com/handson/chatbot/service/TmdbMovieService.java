@@ -18,6 +18,7 @@ import java.util.List;
 public class TmdbMovieService {
 
     private static final String DISCOVER_URL = "https://api.themoviedb.org/3/discover/movie";
+    private static final String SEARCH_URL = "https://api.themoviedb.org/3/search/movie";
     private static final int COMEDY_GENRE_ID = 35;
     private static final int RESULT_LIMIT = 3;
 
@@ -34,9 +35,6 @@ public class TmdbMovieService {
         if (maxRuntimeMinutes < 1) {
             throw new IllegalArgumentException("Maximum runtime must be positive");
         }
-        if (accessToken.isEmpty()) {
-            throw new IllegalStateException("TMDB is not configured");
-        }
 
         URI uri = UriComponentsBuilder.fromHttpUrl(DISCOVER_URL)
                 .queryParam("with_genres", COMEDY_GENRE_ID)
@@ -46,6 +44,26 @@ public class TmdbMovieService {
                 .queryParam("sort_by", "popularity.desc")
                 .build().toUri();
 
+        return fetchMovies(uri);
+    }
+
+    public List<MovieSummary> findByTitle(String title) {
+        URI uri = UriComponentsBuilder.fromHttpUrl(SEARCH_URL)
+                .queryParam("query", "{title}")
+                .queryParam("include_adult", false)
+                .queryParam("language", "en-US")
+                .encode()
+                .buildAndExpand(title)
+                .toUri();
+
+        return fetchMovies(uri);
+    }
+
+    private List<MovieSummary> fetchMovies(URI uri) {
+        if (accessToken.isEmpty()) {
+            throw new IllegalStateException("TMDB is not configured");
+        }
+
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(accessToken);
         headers.setAccept(List.of(MediaType.APPLICATION_JSON));
@@ -53,7 +71,7 @@ public class TmdbMovieService {
         JsonNode body = restTemplate.exchange(uri, HttpMethod.GET, new HttpEntity<Void>(headers), JsonNode.class)
                 .getBody();
         if (body == null || !body.path("results").isArray()) {
-            throw new IllegalStateException("Unexpected TMDB discovery response");
+            throw new IllegalStateException("Unexpected TMDB movie response");
         }
 
         List<MovieSummary> movies = new ArrayList<>();

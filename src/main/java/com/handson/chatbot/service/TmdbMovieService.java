@@ -1,6 +1,6 @@
 package com.handson.chatbot.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -35,8 +35,7 @@ public class TmdbMovieService {
         if (maxRuntimeMinutes < 1) {
             throw new IllegalArgumentException("Maximum runtime must be positive");
         }
-
-        URI uri = UriComponentsBuilder.fromHttpUrl(DISCOVER_URL)
+        URI uri = UriComponentsBuilder.fromUriString(DISCOVER_URL)
                 .queryParam("with_genres", COMEDY_GENRE_ID)
                 .queryParam("with_runtime.lte", maxRuntimeMinutes)
                 .queryParam("include_adult", false)
@@ -48,14 +47,13 @@ public class TmdbMovieService {
     }
 
     public List<MovieSummary> findByTitle(String title) {
-        URI uri = UriComponentsBuilder.fromHttpUrl(SEARCH_URL)
+        URI uri = UriComponentsBuilder.fromUriString(SEARCH_URL)
                 .queryParam("query", "{title}")
                 .queryParam("include_adult", false)
                 .queryParam("language", "en-US")
                 .encode()
                 .buildAndExpand(title)
                 .toUri();
-
         return fetchMovies(uri);
     }
 
@@ -76,14 +74,14 @@ public class TmdbMovieService {
 
         List<MovieSummary> movies = new ArrayList<>();
         for (JsonNode result : body.path("results")) {
-            int id = result.path("id").asInt();
-            String title = result.path("title").asText("");
+            int id = result.path("id").asInt(0);
+            String title = result.path("title").asString("");
             if (id <= 0 || title.isBlank()) {
                 continue;
             }
 
-            movies.add(new MovieSummary(id, title, result.path("overview").asText(""),
-                    result.path("release_date").asText(""), result.path("poster_path").asText(null)));
+            movies.add(new MovieSummary(id, title, result.path("overview").asString(""),
+                    result.path("release_date").asString(""), result.path("poster_path").asString(null)));
             if (movies.size() == RESULT_LIMIT) {
                 break;
             }

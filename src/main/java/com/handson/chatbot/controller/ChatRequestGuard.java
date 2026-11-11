@@ -112,7 +112,7 @@ public class ChatRequestGuard extends RequestBodyAdviceAdapter {
     }
 
     private static RejectedChat tooLarge() {
-        return new RejectedChat(HttpStatus.PAYLOAD_TOO_LARGE, "The chat request is too large.", 0);
+        return new RejectedChat(HttpStatus.CONTENT_TOO_LARGE, "The chat request is too large.", 0);
     }
 
     @ExceptionHandler(RejectedChat.class)

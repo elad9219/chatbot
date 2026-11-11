@@ -2,7 +2,6 @@ package com.handson.chatbot;
 
 import com.handson.chatbot.controller.BotController.BotRequest;
 import com.handson.chatbot.controller.BotController.BotResponse;
-import tools.jackson.databind.json.JsonMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -11,6 +10,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.test.web.servlet.MockMvc;
+import tools.jackson.databind.json.JsonMapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -59,6 +59,24 @@ class ChatbotApplicationTests {
 						.header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "content-type"))
 				.andExpect(status().isOk())
 				.andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, origin));
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = {
+			"/bot/random", "/bot/random/movie", "/bot/search", "/bot/city", "/cityinfo"
+	})
+	void retiredProviderEndpointsAreNotAvailable(String path) throws Exception {
+		mockMvc.perform(get(path))
+				.andExpect(status().isNotFound());
+	}
+
+	@Test
+	void rejectsAnUnapprovedBrowserOrigin() throws Exception {
+		mockMvc.perform(options("/bot")
+						.header(HttpHeaders.ORIGIN, "https://untrusted.example")
+						.header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST")
+						.header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "content-type"))
+				.andExpect(status().isForbidden());
 	}
 
 	@Test

@@ -4,143 +4,38 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.google.api.gax.rpc.ApiException;
 import com.google.cloud.dialogflow.v2.QueryResult;
 import com.google.protobuf.Value;
-import com.handson.chatbot.enumCategories.JokeCategory;
-import com.handson.chatbot.service.ChuckNorrisService;
-import com.handson.chatbot.service.CityInfoService;
 import com.handson.chatbot.service.DialogflowService;
 import com.handson.chatbot.service.TmdbMovieService;
 import com.handson.chatbot.service.TmdbMovieService.MovieSummary;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClientException;
-import org.springframework.web.server.ResponseStatusException;
-import tools.jackson.databind.JsonNode;
 
 import java.io.IOException;
-import java.net.SocketTimeoutException;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Supplier;
 
-@CrossOrigin(
-        origins = {
-                "http://localhost:3000",
-                "https://bot.runmydocker-app.com"
-        },
-        allowedHeaders = "*",
-        methods = {RequestMethod.GET, RequestMethod.POST, RequestMethod.OPTIONS}
-)
 @RestController
 @RequestMapping("/bot")
 public class BotController {
 
     private static final Logger log = LoggerFactory.getLogger(BotController.class);
 
-    private static final String CITY_LOOKUP_UNAVAILABLE =
-            "City information is temporarily unavailable. Please try again later.";
-    private static final String CITY_LOOKUP_TIMEOUT =
-            "The city lookup timed out. Please try again.";
+    private static final String MOVIE_HELP =
+            "I can help you find a movie by title or discover a short comedy. "
+                    + "Try \"Find the movie The Matrix\" or \"Comedy under 100 minutes\".";
 
-    private final ChuckNorrisService chuckNorrisService;
-    private final CityInfoService cityInfoService;
     private final TmdbMovieService movieService;
     private final DialogflowService dialogflowService;
 
-    public BotController(ChuckNorrisService chuckNorrisService,
-                         CityInfoService cityInfoService,
-                         TmdbMovieService movieService,
+    public BotController(TmdbMovieService movieService,
                          DialogflowService dialogflowService) {
-        this.chuckNorrisService = chuckNorrisService;
-        this.cityInfoService = cityInfoService;
         this.movieService = movieService;
         this.dialogflowService = dialogflowService;
-    }
-
-    @GetMapping("/random")
-    @Operation(summary = "Get a random Chuck Norris joke")
-    public String getRandomJoke() {
-        return chuckNorrisService.getRandomJoke();
-    }
-
-    @GetMapping("/random/{category}")
-    @Operation(summary = "Get a random Chuck Norris joke by category")
-    public String getJokeByCategory(
-            @Parameter(description = "Category of the joke", required = true)
-            @PathVariable JokeCategory category) {
-        return chuckNorrisService.getJokeByCategory(category.toString());
-    }
-
-    @GetMapping("/search")
-    @Operation(summary = "Search Chuck Norris jokes by query")
-    public String searchJokes(
-            @Parameter(description = "Search query for the joke", required = true)
-            @RequestParam String query) {
-        return chuckNorrisService.searchJokes(query);
-    }
-
-    @GetMapping("/city")
-    @Operation(summary = "Get city info by name")
-    public ResponseEntity<String> getCityInfo(
-            @Parameter(description = "Name of the city", required = true)
-            @RequestParam String name) {
-        try {
-            JsonNode info = lookupCity(name);
-            if (info == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body("City information not found");
-            }
-            return ResponseEntity.ok(info.toPrettyString());
-        } catch (ResponseStatusException exception) {
-            return ResponseEntity.status(exception.getStatusCode())
-                    .body(exception.getReason());
-        }
-    }
-
-    private JsonNode lookupCity(String cityName) {
-        JsonNode info;
-        try {
-            info = cityInfoService.getCityInfo(cityName);
-        } catch (ResourceAccessException exception) {
-            if (exception.getMostSpecificCause() instanceof SocketTimeoutException) {
-                throw new ResponseStatusException(
-                        HttpStatus.GATEWAY_TIMEOUT, CITY_LOOKUP_TIMEOUT);
-            }
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_GATEWAY, CITY_LOOKUP_UNAVAILABLE);
-        } catch (RestClientException exception) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_GATEWAY, CITY_LOOKUP_UNAVAILABLE);
-        } catch (IllegalStateException exception) {
-            throw new ResponseStatusException(
-                    HttpStatus.SERVICE_UNAVAILABLE, CITY_LOOKUP_UNAVAILABLE);
-        }
-
-        if (info == null || info.isNull()) {
-            return null;
-        }
-        if (!info.isArray()) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_GATEWAY, CITY_LOOKUP_UNAVAILABLE);
-        }
-        return info.isEmpty() ? null : info;
-    }
-
-    BotResponse cityReply(String cityName) {
-        try {
-            JsonNode info = lookupCity(cityName);
-            return BotResponse.of(info == null
-                    ? "City not found. Try another city name."
-                    : info.toPrettyString());
-        } catch (ResponseStatusException exception) {
-            return BotResponse.of(exception.getReason());
-        }
     }
 
     @PostMapping
@@ -181,11 +76,15 @@ public class BotController {
     }
 
     BotResponse replyTo(QueryResult result) {
+        String intentName = result.getIntent().getDisplayName();
+        if ("GetJoke".equals(intentName) || "GetCityInfo".equals(intentName)) {
+            return BotResponse.of(MOVIE_HELP);
+        }
         if (!result.getAllRequiredParamsPresent()) {
             return BotResponse.of(result.getFulfillmentText());
         }
 
-        switch (result.getIntent().getDisplayName()) {
+        switch (intentName) {
             case "DiscoverShortComedies":
                 return comedyReply(100, "Under 90 minutes");
             case "RefineShortComedies":
@@ -194,20 +93,9 @@ public class BotController {
                 return titleReply(result.getParameters()
                         .getFieldsOrDefault("movieTitle", Value.getDefaultInstance())
                         .getStringValue().strip());
-            case "GetJoke":
-                String category = result.getParameters()
-                        .getFieldsOrDefault("query", Value.getDefaultInstance())
-                        .getStringValue();
-                return BotResponse.of(category.isBlank()
-                        ? chuckNorrisService.getRandomJoke()
-                        : chuckNorrisService.getJokeByCategory(category));
-            case "GetCityInfo":
-                String cityName = result.getParameters()
-                        .getFieldsOrDefault("name", Value.getDefaultInstance())
-                        .getStringValue();
-                return cityReply(cityName);
             default:
-                return BotResponse.of(result.getFulfillmentText());
+                return BotResponse.of(result.getFulfillmentText().isBlank()
+                        ? MOVIE_HELP : result.getFulfillmentText());
         }
     }
 

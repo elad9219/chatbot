@@ -4,8 +4,6 @@ import com.google.cloud.dialogflow.v2.Intent;
 import com.google.cloud.dialogflow.v2.QueryResult;
 import com.google.protobuf.Struct;
 import com.google.protobuf.Value;
-import com.handson.chatbot.service.ChuckNorrisService;
-import com.handson.chatbot.service.CityInfoService;
 import com.handson.chatbot.service.DialogflowService;
 import com.handson.chatbot.service.TmdbMovieService;
 import org.junit.jupiter.api.Test;
@@ -25,8 +23,6 @@ class MovieTitleLookupTest {
     private final RestTemplate rest = new RestTemplate();
     private final MockRestServiceServer tmdb = MockRestServiceServer.bindTo(rest).build();
     private final BotController controller = new BotController(
-            mock(ChuckNorrisService.class),
-            mock(CityInfoService.class),
             new TmdbMovieService(rest, "test-token"),
             mock(DialogflowService.class));
 

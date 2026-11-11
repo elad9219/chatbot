@@ -4,20 +4,16 @@ import com.google.api.gax.rpc.ApiException;
 import com.google.api.gax.rpc.StatusCode;
 import com.google.cloud.dialogflow.v2.Intent;
 import com.google.cloud.dialogflow.v2.QueryResult;
-import com.handson.chatbot.service.ChuckNorrisService;
-import com.handson.chatbot.service.CityInfoService;
 import com.handson.chatbot.service.DialogflowService;
 import com.handson.chatbot.service.TmdbMovieService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.ResourceAccessException;
-import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
-import java.net.SocketTimeoutException;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -25,59 +21,9 @@ import static org.mockito.Mockito.*;
 
 class BotControllerTest {
 
-    private final JsonMapper mapper = JsonMapper.builder().build();
-    private final CityInfoService cities = mock(CityInfoService.class);
     private final TmdbMovieService movies = mock(TmdbMovieService.class);
     private final DialogflowService dialogflow = mock(DialogflowService.class);
-    private final BotController controller = new BotController(
-            mock(ChuckNorrisService.class), cities, movies, dialogflow);
-
-    @Test
-    void preservesCityResultsInBothPaths() {
-        var results = mapper.readTree("[{\"name\":\"Paris\",\"country\":\"FR\"}]");
-        when(cities.getCityInfo("Paris")).thenReturn(results);
-
-        var response = controller.getCityInfo("Paris");
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(mapper.readTree(response.getBody())).isEqualTo(results);
-        assertThat(mapper.readTree(controller.cityReply("Paris").getFulfillmentText()))
-                .isEqualTo(results);
-    }
-
-    @Test
-    void emptyArrayProducesNotFoundInsteadOfBlankChat() {
-        when(cities.getCityInfo("Unknown")).thenReturn(mapper.createArrayNode());
-
-        assertThat(controller.getCityInfo("Unknown").getStatusCode())
-                .isEqualTo(HttpStatus.NOT_FOUND);
-        assertThat(controller.cityReply("Unknown").getFulfillmentText())
-                .startsWith("City not found.");
-    }
-
-    @Test
-    void providerErrorDoesNotExposeUpstreamDetails() {
-        when(cities.getCityInfo("Paris"))
-                .thenThrow(new HttpClientErrorException(HttpStatus.UNAUTHORIZED));
-
-        var response = controller.getCityInfo("Paris");
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
-        assertThat(response.getBody()).isEqualTo(
-                "City information is temporarily unavailable. Please try again later.");
-        assertThat(controller.cityReply("Paris").getFulfillmentText())
-                .isEqualTo(response.getBody());
-    }
-
-    @Test
-    void distinguishesProviderTimeoutFromMissingCity() {
-        when(cities.getCityInfo("Paris")).thenThrow(
-                new ResourceAccessException(
-                        "Provider request failed", new SocketTimeoutException()));
-
-        var response = controller.getCityInfo("Paris");
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.GATEWAY_TIMEOUT);
-        assertThat(controller.cityReply("Paris").getFulfillmentText())
-                .isEqualTo("The city lookup timed out. Please try again.");
-    }
+    private final BotController controller = new BotController(movies, dialogflow);
 
     @Test
     void routesDiscoveryAndRefinementWithExclusiveRuntimeLimits() {
@@ -145,7 +91,7 @@ class BotControllerTest {
         };
         assertThat(response.getBody().getFulfillmentText()).contains(expected);
         verify(dialogflow, times(1)).detectIntent("test-session", "Hello");
-        verifyNoInteractions(movies, cities);
+        verifyNoInteractions(movies);
     }
 
     @Test
@@ -159,6 +105,22 @@ class BotControllerTest {
         assertThat(response.getBody().getFulfillmentText()).isEqualTo(
                 "The chat service could not connect. Please try again later.");
         verify(dialogflow, times(1)).detectIntent("test-session", "Hello");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"GetJoke", "GetCityInfo"})
+    void redirectsLegacyIntentsWithoutCallingMovieProviders(String intentName) {
+        for (boolean complete : List.of(false, true)) {
+            QueryResult result = movieIntent(intentName).toBuilder()
+                    .setAllRequiredParamsPresent(complete)
+                    .setFulfillmentText("Legacy provider response")
+                    .build();
+
+            assertThat(controller.replyTo(result).getFulfillmentText())
+                    .contains("find a movie by title")
+                    .doesNotContain("Legacy provider response");
+        }
+        verifyNoInteractions(movies);
     }
 
     private BotController.BotRequest chatRequest() {

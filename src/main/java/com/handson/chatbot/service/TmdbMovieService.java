@@ -11,6 +11,8 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -21,6 +23,9 @@ public class TmdbMovieService {
     private static final String SEARCH_URL = "https://api.themoviedb.org/3/search/movie";
     private static final int COMEDY_GENRE_ID = 35;
     private static final int RESULT_LIMIT = 3;
+    private static final int MIN_RUNTIME_MINUTES = 40;
+    private static final int MIN_VOTE_COUNT = 100;
+    private static final double MIN_VOTE_AVERAGE = 6.0;
 
     private final RestTemplate restTemplate;
     private final String accessToken;
@@ -32,13 +37,19 @@ public class TmdbMovieService {
     }
 
     public List<MovieSummary> findComedies(int maxRuntimeMinutes) {
-        if (maxRuntimeMinutes < 1) {
-            throw new IllegalArgumentException("Maximum runtime must be positive");
+        if (maxRuntimeMinutes < MIN_RUNTIME_MINUTES) {
+            throw new IllegalArgumentException("Maximum runtime must be at least 40 minutes");
         }
+
         URI uri = UriComponentsBuilder.fromUriString(DISCOVER_URL)
                 .queryParam("with_genres", COMEDY_GENRE_ID)
+                .queryParam("with_runtime.gte", MIN_RUNTIME_MINUTES)
                 .queryParam("with_runtime.lte", maxRuntimeMinutes)
+                .queryParam("primary_release_date.lte", LocalDate.now(ZoneOffset.UTC))
+                .queryParam("vote_count.gte", MIN_VOTE_COUNT)
+                .queryParam("vote_average.gte", MIN_VOTE_AVERAGE)
                 .queryParam("include_adult", false)
+                .queryParam("include_video", false)
                 .queryParam("language", "en-US")
                 .queryParam("sort_by", "popularity.desc")
                 .build().toUri();
@@ -54,6 +65,7 @@ public class TmdbMovieService {
                 .encode()
                 .buildAndExpand(title)
                 .toUri();
+
         return fetchMovies(uri);
     }
 
@@ -66,8 +78,10 @@ public class TmdbMovieService {
         headers.setBearerAuth(accessToken);
         headers.setAccept(List.of(MediaType.APPLICATION_JSON));
 
-        JsonNode body = restTemplate.exchange(uri, HttpMethod.GET, new HttpEntity<Void>(headers), JsonNode.class)
-                .getBody();
+        JsonNode body = restTemplate.exchange(
+                uri, HttpMethod.GET, new HttpEntity<Void>(headers), JsonNode.class
+        ).getBody();
+
         if (body == null || !body.path("results").isArray()) {
             throw new IllegalStateException("Unexpected TMDB movie response");
         }
@@ -80,8 +94,14 @@ public class TmdbMovieService {
                 continue;
             }
 
-            movies.add(new MovieSummary(id, title, result.path("overview").asString(""),
-                    result.path("release_date").asString(""), result.path("poster_path").asString(null)));
+            movies.add(new MovieSummary(
+                    id,
+                    title,
+                    result.path("overview").asString(""),
+                    result.path("release_date").asString(""),
+                    result.path("poster_path").asString(null)
+            ));
+
             if (movies.size() == RESULT_LIMIT) {
                 break;
             }
@@ -97,7 +117,8 @@ public class TmdbMovieService {
         public final String releaseDate;
         public final String posterPath;
 
-        private MovieSummary(int id, String title, String overview, String releaseDate, String posterPath) {
+        private MovieSummary(int id, String title, String overview,
+                             String releaseDate, String posterPath) {
             this.id = id;
             this.title = title;
             this.overview = overview;

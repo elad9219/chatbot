@@ -6,6 +6,7 @@ import com.google.protobuf.Struct;
 import com.google.protobuf.Value;
 import com.handson.chatbot.service.ChuckNorrisService;
 import com.handson.chatbot.service.CityInfoService;
+import com.handson.chatbot.service.DialogflowService;
 import com.handson.chatbot.service.TmdbMovieService;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
@@ -23,24 +24,32 @@ class MovieTitleLookupTest {
 
     private final RestTemplate rest = new RestTemplate();
     private final MockRestServiceServer tmdb = MockRestServiceServer.bindTo(rest).build();
-    private final BotController controller = new BotController(mock(ChuckNorrisService.class),
-            mock(CityInfoService.class), new TmdbMovieService(rest, "test-token"));
+    private final BotController controller = new BotController(
+            mock(ChuckNorrisService.class),
+            mock(CityInfoService.class),
+            new TmdbMovieService(rest, "test-token"),
+            mock(DialogflowService.class));
 
     @Test
     void forwardsThePromptBeforeSearchingByTitle() {
-        QueryResult pending = titleIntent().setFulfillmentText("What movie title should I look up?").build();
+        QueryResult pending = titleIntent()
+                .setFulfillmentText("What movie title should I look up?").build();
 
-        assertThat(controller.replyTo(pending).getFulfillmentText()).isEqualTo(pending.getFulfillmentText());
+        assertThat(controller.replyTo(pending).getFulfillmentText())
+                .isEqualTo(pending.getFulfillmentText());
         tmdb.verify();
     }
 
     @Test
     void encodesTheTitleAndReturnsMovieCards() {
         tmdb.expect(requestTo("https://api.themoviedb.org/3/search/movie"
-                        + "?query=L%C3%A9on%20%2B%20Me%20%26%20You&include_adult=false&language=en-US"))
+                        + "?query=L%C3%A9on%20%2B%20Me%20%26%20You"
+                        + "&include_adult=false&language=en-US"))
                 .andExpect(header(HttpHeaders.AUTHORIZATION, "Bearer test-token"))
-                .andRespond(withSuccess("{\"results\":[{\"id\":1,\"title\":\"First match\"},"
-                        + "{\"id\":2,\"title\":\"Second match\"}]}", MediaType.APPLICATION_JSON));
+                .andRespond(withSuccess(
+                        "{\"results\":[{\"id\":1,\"title\":\"First match\"},"
+                                + "{\"id\":2,\"title\":\"Second match\"}]}",
+                        MediaType.APPLICATION_JSON));
 
         var response = controller.replyTo(titleResult("  Léon + Me & You  "));
 
@@ -54,7 +63,8 @@ class MovieTitleLookupTest {
     void offersToStartAnotherSearchWhenNoTitleMatches() {
         tmdb.expect(requestTo("https://api.themoviedb.org/3/search/movie"
                         + "?query=Unknown&include_adult=false&language=en-US"))
-                .andRespond(withSuccess("{\"results\":[]}", MediaType.APPLICATION_JSON));
+                .andRespond(withSuccess(
+                        "{\"results\":[]}", MediaType.APPLICATION_JSON));
 
         var response = controller.replyTo(titleResult("Unknown"));
 
@@ -65,7 +75,8 @@ class MovieTitleLookupTest {
     }
 
     private QueryResult.Builder titleIntent() {
-        return QueryResult.newBuilder().setIntent(Intent.newBuilder().setDisplayName("FindMovieByTitle"));
+        return QueryResult.newBuilder()
+                .setIntent(Intent.newBuilder().setDisplayName("FindMovieByTitle"));
     }
 
     private QueryResult titleResult(String title) {

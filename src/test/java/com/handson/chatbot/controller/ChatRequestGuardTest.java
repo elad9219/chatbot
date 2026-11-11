@@ -1,15 +1,14 @@
 package com.handson.chatbot.controller;
 
-import tools.jackson.databind.json.JsonMapper;
 import com.handson.chatbot.controller.BotController.BotResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.bind.annotation.RequestBody;import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
@@ -55,11 +54,13 @@ class ChatRequestGuardTest {
         for (int i = 0; i < 60; i++) {
             send("Find a movie", "session-" + i).andExpect(status().isOk());
         }
+
         clock.set(SECONDS.toNanos(59));
         send("Find a movie", "different-session")
                 .andExpect(status().isTooManyRequests())
                 .andExpect(header().string(HttpHeaders.RETRY_AFTER, "1"))
-                .andExpect(jsonPath("$.fulfillmentText").value("The chat is busy. Wait a moment and try again."));
+                .andExpect(jsonPath("$.fulfillmentText").value(
+                        "The chat is busy. Wait a moment and try again."));
         assertThat(controller.calls).isEqualTo(60);
 
         clock.set(SECONDS.toNanos(60));
@@ -69,14 +70,16 @@ class ChatRequestGuardTest {
 
     private ResultActions send(String text, String session) throws Exception {
         return mvc.perform(post("/bot").contentType(MediaType.APPLICATION_JSON)
-                .content(json.writeValueAsBytes(Map.of("session", session, "queryResult", Map.of("queryText", text)))));
+                .content(json.writeValueAsBytes(Map.of(
+                        "session", session,
+                        "queryResult", Map.of("queryText", text)))));
     }
 
     private static class RecordingBotController extends BotController {
         private int calls;
 
         RecordingBotController() {
-            super(null, null, null);
+            super(null, null, null, null);
         }
 
         @Override

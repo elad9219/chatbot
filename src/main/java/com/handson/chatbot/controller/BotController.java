@@ -1,16 +1,19 @@
 package com.handson.chatbot.controller;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import tools.jackson.databind.JsonNode;
-import com.google.cloud.dialogflow.v2.*;
+import com.google.api.gax.rpc.ApiException;
+import com.google.cloud.dialogflow.v2.QueryResult;
 import com.google.protobuf.Value;
 import com.handson.chatbot.enumCategories.JokeCategory;
 import com.handson.chatbot.service.ChuckNorrisService;
 import com.handson.chatbot.service.CityInfoService;
+import com.handson.chatbot.service.DialogflowService;
 import com.handson.chatbot.service.TmdbMovieService;
 import com.handson.chatbot.service.TmdbMovieService.MovieSummary;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -18,7 +21,9 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.server.ResponseStatusException;
+import tools.jackson.databind.JsonNode;
 
+import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.util.List;
 import java.util.UUID;
@@ -36,8 +41,7 @@ import java.util.function.Supplier;
 @RequestMapping("/bot")
 public class BotController {
 
-    private static final String PROJECT_ID = "elad-chatbot-dsci";
-    private static final String LANGUAGE_CODE = "en-US";
+    private static final Logger log = LoggerFactory.getLogger(BotController.class);
 
     private static final String CITY_LOOKUP_UNAVAILABLE =
             "City information is temporarily unavailable. Please try again later.";
@@ -47,13 +51,16 @@ public class BotController {
     private final ChuckNorrisService chuckNorrisService;
     private final CityInfoService cityInfoService;
     private final TmdbMovieService movieService;
+    private final DialogflowService dialogflowService;
 
     public BotController(ChuckNorrisService chuckNorrisService,
                          CityInfoService cityInfoService,
-                         TmdbMovieService movieService) {
+                         TmdbMovieService movieService,
+                         DialogflowService dialogflowService) {
         this.chuckNorrisService = chuckNorrisService;
         this.cityInfoService = cityInfoService;
         this.movieService = movieService;
+        this.dialogflowService = dialogflowService;
     }
 
     @GetMapping("/random")
@@ -91,7 +98,8 @@ public class BotController {
             }
             return ResponseEntity.ok(info.toPrettyString());
         } catch (ResponseStatusException exception) {
-            return ResponseEntity.status(exception.getStatusCode()).body(exception.getReason());
+            return ResponseEntity.status(exception.getStatusCode())
+                    .body(exception.getReason());
         }
     }
 
@@ -101,20 +109,25 @@ public class BotController {
             info = cityInfoService.getCityInfo(cityName);
         } catch (ResourceAccessException exception) {
             if (exception.getMostSpecificCause() instanceof SocketTimeoutException) {
-                throw new ResponseStatusException(HttpStatus.GATEWAY_TIMEOUT, CITY_LOOKUP_TIMEOUT);
+                throw new ResponseStatusException(
+                        HttpStatus.GATEWAY_TIMEOUT, CITY_LOOKUP_TIMEOUT);
             }
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, CITY_LOOKUP_UNAVAILABLE);
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY, CITY_LOOKUP_UNAVAILABLE);
         } catch (RestClientException exception) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, CITY_LOOKUP_UNAVAILABLE);
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY, CITY_LOOKUP_UNAVAILABLE);
         } catch (IllegalStateException exception) {
-            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, CITY_LOOKUP_UNAVAILABLE);
+            throw new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE, CITY_LOOKUP_UNAVAILABLE);
         }
 
         if (info == null || info.isNull()) {
             return null;
         }
         if (!info.isArray()) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, CITY_LOOKUP_UNAVAILABLE);
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY, CITY_LOOKUP_UNAVAILABLE);
         }
         return info.isEmpty() ? null : info;
     }
@@ -122,45 +135,49 @@ public class BotController {
     BotResponse cityReply(String cityName) {
         try {
             JsonNode info = lookupCity(cityName);
-            return BotResponse.of(info == null ? "City not found. Try another city name." : info.toPrettyString());
+            return BotResponse.of(info == null
+                    ? "City not found. Try another city name."
+                    : info.toPrettyString());
         } catch (ResponseStatusException exception) {
             return BotResponse.of(exception.getReason());
         }
     }
 
     @PostMapping
-    public ResponseEntity<BotResponse> handleBot(@RequestBody BotRequest request) throws Exception {
+    public ResponseEntity<BotResponse> handleBot(@RequestBody BotRequest request) {
         String sessionId = request.getSession();
         if (sessionId == null || sessionId.isBlank()) {
             sessionId = UUID.randomUUID().toString();
         }
 
-        try (SessionsClient sessionsClient = SessionsClient.create()) {
-            SessionName session = SessionName.of(PROJECT_ID, sessionId);
+        QueryResult result;
+        try {
+            result = dialogflowService.detectIntent(
+                    sessionId, request.getQueryResult().getQueryText());
+        } catch (ApiException exception) {
+            var code = exception.getStatusCode().getCode();
+            log.warn("Dialogflow request failed with status {}", code);
 
-            TextInput textInput = TextInput.newBuilder()
-                    .setText(request.getQueryResult().getQueryText())
-                    .setLanguageCode(LANGUAGE_CODE)
-                    .build();
-
-            QueryInput queryInput = QueryInput.newBuilder()
-                    .setText(textInput)
-                    .build();
-
-            QueryParameters parameters = QueryParameters.newBuilder()
-                    .addContexts(Context.newBuilder()
-                            .setName(session + "/contexts/movie-demo")
-                            .setLifespanCount(1))
-                    .build();
-
-            DetectIntentRequest intentRequest = DetectIntentRequest.newBuilder()
-                    .setSession(session.toString())
-                    .setQueryInput(queryInput)
-                    .setQueryParams(parameters)
-                    .build();
-
-            return ResponseEntity.ok(replyTo(sessionsClient.detectIntent(intentRequest).getQueryResult()));
+            String message = switch (code) {
+                case DEADLINE_EXCEEDED ->
+                        "The chat service took too long to respond. "
+                                + "Your message may have been processed and was not sent again. "
+                                + "Reload the page to start a new conversation if needed.";
+                case RESOURCE_EXHAUSTED ->
+                        "The chat service is busy or has reached its usage limit. "
+                                + "Please try again later.";
+                default ->
+                        "The chat service is temporarily unavailable. "
+                                + "Your message was not sent again. Please try again later.";
+            };
+            return ResponseEntity.ok(BotResponse.of(message));
+        } catch (IOException exception) {
+            log.warn("Dialogflow client could not be initialized");
+            return ResponseEntity.ok(BotResponse.of(
+                    "The chat service could not connect. Please try again later."));
         }
+
+        return ResponseEntity.ok(replyTo(result));
     }
 
     BotResponse replyTo(QueryResult result) {
@@ -197,7 +214,8 @@ public class BotController {
     private BotResponse comedyReply(int underMinutes, String suggestedReply) {
         return movieReply(() -> movieService.findComedies(underMinutes - 1),
                 "Here are some comedies under " + underMinutes + " minutes.",
-                BotResponse.of("I couldn't find any comedies under " + underMinutes + " minutes."),
+                BotResponse.of(
+                        "I couldn't find any comedies under " + underMinutes + " minutes."),
                 suggestedReply);
     }
 
@@ -211,20 +229,27 @@ public class BotController {
 
         return movieReply(() -> movieService.findByTitle(title),
                 "Here are the movie matches I found.",
-                new BotResponse("I couldn't find a movie with that title. Try a different title.",
+                new BotResponse(
+                        "I couldn't find a movie with that title. Try a different title.",
                         null, "Find a movie by title"),
                 null);
     }
 
-    private BotResponse movieReply(Supplier<List<MovieSummary>> lookup, String successText,
-                                   BotResponse emptyReply, String suggestedReply) {
+    private BotResponse movieReply(Supplier<List<MovieSummary>> lookup,
+                                   String successText,
+                                   BotResponse emptyReply,
+                                   String suggestedReply) {
         try {
             List<MovieSummary> movies = lookup.get();
-            return movies.isEmpty() ? emptyReply : new BotResponse(successText, movies, suggestedReply);
+            return movies.isEmpty()
+                    ? emptyReply
+                    : new BotResponse(successText, movies, suggestedReply);
         } catch (HttpClientErrorException.TooManyRequests exception) {
-            return BotResponse.of("The movie service is busy. Please try again in a moment.");
+            return BotResponse.of(
+                    "The movie service is busy. Please try again in a moment.");
         } catch (RestClientException | IllegalStateException exception) {
-            return BotResponse.of("The movie service is temporarily unavailable. Please try again later.");
+            return BotResponse.of(
+                    "The movie service is temporarily unavailable. Please try again later.");
         }
     }
 
@@ -251,7 +276,9 @@ public class BotController {
         private final List<MovieSummary> movies;
         private final String suggestedReply;
 
-        private BotResponse(String fulfillmentText, List<MovieSummary> movies, String suggestedReply) {
+        private BotResponse(String fulfillmentText,
+                            List<MovieSummary> movies,
+                            String suggestedReply) {
             this.fulfillmentText = fulfillmentText;
             this.movies = movies;
             this.suggestedReply = suggestedReply;

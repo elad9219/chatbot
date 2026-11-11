@@ -9,8 +9,8 @@ import com.handson.chatbot.service.ChuckNorrisService;
 import com.handson.chatbot.service.CityInfoService;
 import com.handson.chatbot.service.TmdbMovieService;
 import com.handson.chatbot.service.TmdbMovieService.MovieSummary;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -57,31 +57,31 @@ public class BotController {
     }
 
     @GetMapping("/random")
-    @ApiOperation(value = "Get a random Chuck Norris joke")
+    @Operation(summary = "Get a random Chuck Norris joke")
     public String getRandomJoke() {
         return chuckNorrisService.getRandomJoke();
     }
 
     @GetMapping("/random/{category}")
-    @ApiOperation(value = "Get a random Chuck Norris joke by category")
+    @Operation(summary = "Get a random Chuck Norris joke by category")
     public String getJokeByCategory(
-            @ApiParam(value = "Category of the joke", required = true, allowableValues = "ANIMAL, CAREER, CELEBRITY, DEV, FASHION, FOOD, HISTORY, MONEY, MOVIE, MUSIC, POLITICAL, RELIGION, SCIENCE, SPORT, TRAVEL")
+            @Parameter(description = "Category of the joke", required = true)
             @PathVariable JokeCategory category) {
         return chuckNorrisService.getJokeByCategory(category.toString());
     }
 
     @GetMapping("/search")
-    @ApiOperation(value = "Search Chuck Norris jokes by query")
+    @Operation(summary = "Search Chuck Norris jokes by query")
     public String searchJokes(
-            @ApiParam(value = "Search query for the joke", required = true)
+            @Parameter(description = "Search query for the joke", required = true)
             @RequestParam String query) {
         return chuckNorrisService.searchJokes(query);
     }
 
     @GetMapping("/city")
-    @ApiOperation(value = "Get city info by name")
+    @Operation(summary = "Get city info by name")
     public ResponseEntity<String> getCityInfo(
-            @ApiParam(value = "Name of the city", required = true)
+            @Parameter(description = "Name of the city", required = true)
             @RequestParam String name) {
         try {
             JsonNode info = lookupCity(name);
@@ -91,7 +91,7 @@ public class BotController {
             }
             return ResponseEntity.ok(info.toPrettyString());
         } catch (ResponseStatusException exception) {
-            return ResponseEntity.status(exception.getStatus()).body(exception.getReason());
+            return ResponseEntity.status(exception.getStatusCode()).body(exception.getReason());
         }
     }
 

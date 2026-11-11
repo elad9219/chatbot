@@ -1,7 +1,6 @@
 package com.handson.chatbot.controller;
 
-
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import com.handson.chatbot.service.CityInfoService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -26,4 +25,3 @@ public class CityInfoController {
         }
     }
 }
-

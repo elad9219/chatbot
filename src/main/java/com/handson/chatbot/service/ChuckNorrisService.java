@@ -1,7 +1,7 @@
 package com.handson.chatbot.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.ArrayNode;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
@@ -9,9 +9,9 @@ import org.springframework.web.client.RestTemplate;
 @Service
 public class ChuckNorrisService {
 
-    private static final String RANDOM_URL      = "https://api.chucknorris.io/jokes/random";
+    private static final String RANDOM_URL = "https://api.chucknorris.io/jokes/random";
     private static final String BY_CATEGORY_URL = "https://api.chucknorris.io/jokes/random?category={category}";
-    private static final String SEARCH_URL      = "https://api.chucknorris.io/jokes/search?query={query}";
+    private static final String SEARCH_URL = "https://api.chucknorris.io/jokes/search?query={query}";
 
     private final RestTemplate rest;
 
@@ -21,13 +21,13 @@ public class ChuckNorrisService {
 
     public String getRandomJoke() {
         JsonNode node = rest.getForObject(RANDOM_URL, JsonNode.class);
-        return node.get("value").asText();
+        return node.get("value").asString();
     }
 
     public String getJokeByCategory(String category) {
         try {
             JsonNode node = rest.getForObject(BY_CATEGORY_URL, JsonNode.class, category);
-            return node.get("value").asText();
+            return node.get("value").asString();
         } catch (HttpClientErrorException.NotFound nf) {
             return searchJokes(category);
         }
@@ -39,6 +39,6 @@ public class ChuckNorrisService {
         if (arr == null || arr.isEmpty()) {
             return "No jokes found for \"" + query + "\"";
         }
-        return arr.get(0).get("value").asText();
+        return arr.get(0).get("value").asString();
     }
 }

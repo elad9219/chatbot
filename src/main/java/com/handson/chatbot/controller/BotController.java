@@ -1,7 +1,7 @@
 package com.handson.chatbot.controller;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import com.google.cloud.dialogflow.v2.*;
 import com.google.protobuf.Value;
 import com.handson.chatbot.enumCategories.JokeCategory;

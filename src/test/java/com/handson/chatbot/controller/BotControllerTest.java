@@ -1,6 +1,6 @@
 package com.handson.chatbot.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import com.google.cloud.dialogflow.v2.Intent;
 import com.google.cloud.dialogflow.v2.QueryResult;
 import com.handson.chatbot.service.ChuckNorrisService;
@@ -21,7 +21,7 @@ import static org.mockito.Mockito.when;
 
 class BotControllerTest {
 
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final JsonMapper mapper = JsonMapper.builder().build();
     private final CityInfoService cities = mock(CityInfoService.class);
     private final TmdbMovieService movies = mock(TmdbMovieService.class);
     private final BotController controller = new BotController(mock(ChuckNorrisService.class), cities, movies);

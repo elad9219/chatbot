@@ -1,14 +1,18 @@
 package com.handson.chatbot;
 
+import com.handson.chatbot.controller.BotController.BotRequest;
+import com.handson.chatbot.controller.BotController.BotResponse;
+import tools.jackson.databind.json.JsonMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -21,6 +25,9 @@ class ChatbotApplicationTests {
 
 	@Autowired
 	private MockMvc mockMvc;
+
+	@Autowired
+	private JsonMapper json;
 
 	@Test
 	void contextLoads() {
@@ -52,5 +59,21 @@ class ChatbotApplicationTests {
 						.header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "content-type"))
 				.andExpect(status().isOk())
 				.andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, origin));
+	}
+
+	@Test
+	void preservesTheChatJsonContract() {
+		BotRequest request = json.readValue(
+				"{\"session\":\"test-session\",\"queryResult\":{\"queryText\":\"Find a movie by title\"}}",
+				BotRequest.class);
+
+		assertThat(request.getSession()).isEqualTo("test-session");
+		assertThat(request.getQueryResult().getQueryText()).isEqualTo("Find a movie by title");
+
+		var reply = json.readTree(json.writeValueAsString(BotResponse.of("Hello")));
+		assertThat(reply.path("fulfillmentText").asString()).isEqualTo("Hello");
+		assertThat(reply.path("source").asString()).isEqualTo("BOT");
+		assertThat(reply.has("movies")).isFalse();
+		assertThat(reply.has("suggestedReply")).isFalse();
 	}
 }

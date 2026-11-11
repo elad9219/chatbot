@@ -1,15 +1,15 @@
 package com.handson.chatbot.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import com.handson.chatbot.controller.BotController.BotResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-import org.springframework.web.bind.annotation.RequestBody;
 
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
@@ -24,7 +24,7 @@ class ChatRequestGuardTest {
     private static final String SESSION = "d4a75f43-e6c7-43b6-a38e-69de40b61b29";
 
     private final AtomicLong clock = new AtomicLong();
-    private final ObjectMapper json = new ObjectMapper();
+    private final JsonMapper json = JsonMapper.builder().build();
     private final RecordingBotController controller = new RecordingBotController();
     private final MockMvc mvc = MockMvcBuilders.standaloneSetup(controller)
             .setControllerAdvice(new ChatRequestGuard(clock::get)).build();

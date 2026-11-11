@@ -1,6 +1,6 @@
 package com.handson.chatbot.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -31,7 +31,7 @@ public class CityInfoService {
             throw new IllegalStateException("City lookup is not configured");
         }
 
-        URI uri = UriComponentsBuilder.fromHttpUrl(API_URL)
+        URI uri = UriComponentsBuilder.fromUriString(API_URL)
                 .queryParam("name", "{cityName}")
                 .encode()
                 .buildAndExpand(cityName)

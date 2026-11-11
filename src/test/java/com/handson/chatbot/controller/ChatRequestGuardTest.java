@@ -37,7 +37,7 @@ class ChatRequestGuardTest {
         send("x".repeat(257), SESSION).andExpect(status().isBadRequest());
         send("Find a movie", "wrong/path").andExpect(status().isBadRequest());
         send("Find a movie", "x".repeat(37)).andExpect(status().isBadRequest());
-        send("x".repeat(4096), SESSION).andExpect(status().isPayloadTooLarge());
+        send("x".repeat(4096), SESSION).andExpect(status().isContentTooLarge());
         assertThat(controller.calls).isZero();
     }
 

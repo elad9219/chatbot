@@ -1,79 +1,218 @@
-# NLP Chatbot — Dialogflow Conversational Agent
+# Movie Night — Backend
 
-A full-stack conversational application that combines a Java/Spring backend, a React frontend, Dialogflow NLP, webhooks, and external APIs. The chatbot recognizes user intent and can respond to predefined requests, retrieve jokes, and return city information.
+A Java 21 and Spring Boot API for a conversational movie discovery application. Google Dialogflow ES recognizes intent and manages conversational parameters; the backend retrieves movie data from TMDB and returns structured results to the React interface.
 
-## Quick Links
+[Live demo](https://eaichat.vercel.app/) · [Frontend repository](https://github.com/elad9219/chatbot-frontend) · [API documentation](https://aichat.runmydocker-app.com/swagger-ui.html) · [Portfolio](https://eladt-portfolio.vercel.app/)
 
-- **Live Project:** [eaichat.vercel.app](https://eaichat.vercel.app/)
-- **API Documentation (Swagger):** [aichat.runmydocker-app.com/swagger-ui.html](https://aichat.runmydocker-app.com/swagger-ui.html)
-- **Backend Repository:** [github.com/elad9219/chatbot](https://github.com/elad9219/chatbot)
-- **Frontend Repository:** [github.com/elad9219/chatbot-frontend](https://github.com/elad9219/chatbot-frontend)
+## Features
 
-## Highlights
+- Search for a movie in one message or let the bot ask for its title.
+- Discover comedies under 100 minutes and refine the conversation to under 90 minutes.
+- Return up to three movie cards with titles, posters, release dates and overviews.
+- Provide helpful fallback messages for unsupported requests and unavailable services.
+- Bound external requests with connection, read and Dialogflow timeouts.
+- Validate message length, request size and session identifiers before calling external services.
+- Expose a read-only health endpoint for frontend warm-up and scheduled wake checks.
 
-- **Intent-based conversations:** Uses Dialogflow to recognize user intent and route requests.
-- **Webhook integration:** Connects NLP intents to backend logic and external services.
-- **External APIs:** Retrieves jokes and city information in real time.
-- **Guided user experience:** Provides example prompts to help first-time users understand available interactions.
-- **Full-stack implementation:** Java/Spring backend, React frontend, and Docker support.
-
-## Technologies
-
-- **Backend:** Java, Spring Framework, Maven
-- **Frontend:** React
-- **NLP:** Dialogflow
-- **Integration:** Webhooks, REST APIs
-- **Containerization:** Docker
-- **API Documentation:** Swagger
-
-## Example Interactions
-
-- `Hi` → Returns a greeting.
-- `Tell me a joke` → Retrieves a joke from an external jokes API.
-- `City of Paris` → Retrieves city information from an external city API.
+This is an intent-based chatbot, not a generative AI assistant. Conversation commands are in English. Movie titles can be entered in other languages, but matches depend on Dialogflow extraction and TMDB data.
 
 ## Screenshots
 
-### Chat Interface
+### Welcome screen
 
-![Chatbot interface](https://github.com/user-attachments/assets/a32e880b-7683-48cd-9039-9cdcffcb9de1)
+![Movie Night welcome screen](docs/images/welcome.png)
 
-### Conversation Example
+### Movie search
 
-![Chatbot conversation](https://github.com/user-attachments/assets/70f2bfb4-1a51-4027-bcd2-3552bd9f3264)
+![Movie Night search results with movie cards](docs/images/movie-search.png)
 
-## Local Setup
+## Architecture
 
-### Backend
+```text
+React frontend → Spring Boot API → Dialogflow ES
+                                → TMDB API
+```
+
+The frontend sends a message and session ID to the backend. The backend calls Dialogflow through its Java client, routes the recognized intent and retrieves movie results when needed.
+
+An inbound Dialogflow fulfillment webhook is not required.
+
+## Technology
+
+- Java 21
+- Spring Boot 4.1.2 and Spring MVC
+- Google Cloud Dialogflow ES client
+- Spring RestTemplate for TMDB requests
+- Spring Boot Actuator
+- OpenAPI documentation through springdoc
+- Maven, JUnit, Mockito and Spring test support
+- Docker and GitHub Actions
+
+No application database is required.
+
+## Local setup
+
+### Requirements
+
+- JDK 21
+- Maven
+- A TMDB API read access token
+- A Google service-account key with permission to call the configured Dialogflow agent
+
+Clone the repository:
 
 ```bash
 git clone https://github.com/elad9219/chatbot.git
 cd chatbot
-mvn clean install
+```
+
+Configure these environment variables in your terminal or IntelliJ run configuration:
+
+| Variable | Purpose |
+| --- | --- |
+| `TMDB_READ_ACCESS_TOKEN` | TMDB API read access token |
+| `GOOGLE_APPLICATION_CREDENTIALS` | Absolute path to the local Google service-account JSON file |
+
+Keep credentials outside tracked source files. Do not commit service-account keys, tokens or deployment configuration containing secrets.
+
+Start the API:
+
+```bash
 mvn spring-boot:run
 ```
 
-Configure your own Dialogflow credentials and any required external API configuration before starting the backend. Do not commit real credentials or service-account keys.
+The default local address is `http://localhost:8080`.
 
-### Frontend
+### Dialogflow configuration
+
+The current implementation targets Google Cloud project `elad-chatbot-dsci`. To use your own project, update `PROJECT_ID` in `DialogflowService` and configure an agent with the corresponding intents.
+
+| Intent | Behavior |
+| --- | --- |
+| `FindMovieByTitle` | Extracts the required `movieTitle` parameter using `@sys.any`; asks for a title when missing |
+| `DiscoverShortComedies` | Discovers comedies under 100 minutes |
+| `RefineShortComedies` | Refines a comedy search to under 90 minutes |
+
+Example training phrases include:
+
+- `Find the movie The Matrix`
+- `Look up Inception`
+- `Find a movie by title`
+- `Comedy under 100 minutes`
+- `Under 90 minutes`
+
+The backend supplies a `movie-demo` context with each request. Configure the refinement intent as a contextual follow-up to comedy discovery, and provide a fallback response explaining the supported movie requests.
+
+Agent training phrases and contexts are configured in Dialogflow; they are not provisioned by this repository.
+
+## API
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `POST` | `/bot` | Process one conversational message |
+| `GET` | `/actuator/health` | Check application health |
+| `GET` | `/v3/api-docs` | Read the OpenAPI document |
+| `GET` | `/swagger-ui.html` | Open the interactive API documentation |
+
+Example request:
 
 ```bash
-git clone https://github.com/elad9219/chatbot-frontend.git
-cd chatbot-frontend
-npm install
-npm start
+curl --request POST http://localhost:8080/bot \
+  --header 'Content-Type: application/json' \
+  --data '{"session":"local-movie-demo","queryResult":{"queryText":"Find the movie The Matrix"}}'
 ```
 
-## Dialogflow Setup
+Replies contain `fulfillmentText` and `source`. Successful movie searches also include `movies`; relevant replies can include `suggestedReply`.
 
-1. Create or select a Dialogflow agent.
-2. Configure intents and entities for the supported conversation flows.
-3. Configure the backend webhook.
-4. Provide the required Google Cloud credentials securely through your local environment/configuration.
+Movie entries contain `id`, `title`, `overview`, `releaseDate` and `posterPath`.
 
-## Contact
+### Request safeguards
 
-- **Elad Tennenboim**
-- **GitHub:** [elad9219](https://github.com/elad9219)
-- **LinkedIn:** [linkedin.com/in/elad-tennenboim](https://www.linkedin.com/in/elad-tennenboim/)
-- **Email:** elad9219@gmail.com
+- Maximum message length: 256 Unicode code points.
+- Maximum request body: 4,096 bytes.
+- Optional session identifiers: 1–36 letters, digits, underscores or hyphens.
+- Shared in-memory limit: 60 accepted chat requests per minute per application instance.
+- CORS access is configured for the local frontend and the public demo.
+
+The rate limit resets when the application restarts. It is a demo safeguard, not a distributed quota or a guarantee against all abuse.
+
+## Movie discovery rules
+
+Comedy discovery requests released films with:
+
+- Runtime from 40 minutes through 99 minutes, or through 89 minutes after refinement.
+- At least 100 votes and an average rating of at least 6.
+- Adult content and video entries excluded.
+- Results ordered by popularity and limited to three cards.
+
+Search results and availability depend on TMDB and can change over time.
+
+## Tests and build
+
+```bash
+mvn clean verify
+```
+
+The verified release reported 42 tests: 41 passed and one optional live TMDB test was skipped.
+
+The default suite uses mocked external services. To run the live TMDB check with a valid token already configured:
+
+```bash
+TMDB_LIVE_TEST=true mvn verify
+```
+
+GitHub Actions runs the Java 21 build and default test suite. Live provider access is verified separately from isolated tests.
+
+## Deployment
+
+The backend runs on RunMyDocker:
+
+```text
+https://aichat.runmydocker-app.com
+```
+
+The Dockerfile uses a Java 21 runtime and a non-root user. Its build context is restricted to the Dockerfile and packaged application JAR.
+
+Build the JAR before building the image:
+
+```bash
+mvn clean verify
+docker buildx build --platform linux/amd64 --load --tag chatbot-backend:local .
+```
+
+The container exposes port `8080`.
+
+Production configuration is supplied through `SPRING_APPLICATION_JSON`, including:
+
+| Property | Purpose |
+| --- | --- |
+| `server.port` | Application port |
+| `tmdb.read.access.token` | TMDB token |
+| `dialogflow.credentials.json` | Google service-account JSON serialized as a string |
+| `management.endpoint.health.show-details` | Set to `never` |
+| `management.endpoint.health.show-components` | Set to `never` |
+
+The inline Google credential setting is used for container deployment; local development can use the credential file path instead. Credentials are injected at runtime rather than copied into the image.
+
+The hosting platform can put the demo backend to sleep. The frontend performs read-only health checks before sending a message. A separate portfolio workflow also checks the health endpoint.
+
+## Demo limitations
+
+- Requires the configured Dialogflow agent and valid provider credentials.
+- Supports specific movie intents rather than arbitrary conversation.
+- Depends on external provider availability and quotas.
+- Does not persist application chat history in a database.
+- Health status confirms application availability, not the availability of every external provider.
+
+## Attribution
+
+This product uses the TMDB API but is not endorsed or certified by TMDB. Movie data and images are supplied by TMDB.
+
+## Author
+
+Elad Tennenboim
+
+- [GitHub](https://github.com/elad9219)
+- [Portfolio](https://eladt-portfolio.vercel.app/)
+- [LinkedIn](https://www.linkedin.com/in/elad-tennenboim/)
+- [Email](mailto:elad9219@gmail.com)

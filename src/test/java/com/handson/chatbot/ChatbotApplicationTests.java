@@ -43,6 +43,15 @@ class ChatbotApplicationTests {
 	}
 
 	@Test
+	void healthResponseDoesNotExposeInternalDetails() throws Exception {
+		mockMvc.perform(get("/actuator/health"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.status").value("UP"))
+				.andExpect(jsonPath("$.components").doesNotExist())
+				.andExpect(jsonPath("$.details").doesNotExist());
+	}
+
+	@Test
 	void documentsTheChatEndpointInOpenApi() throws Exception {
 		mockMvc.perform(get("/v3/api-docs"))
 				.andExpect(status().isOk())

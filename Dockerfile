@@ -1,9 +1,9 @@
-FROM eclipse-temurin:11
+FROM eclipse-temurin:21-jre-jammy
 
-COPY target/chatbot-*.jar /usr/src/chatbot.jar
-COPY src/main/resources/application.properties /opt/conf/application.properties
-COPY credentials/dialogflow-service.json /app/credentials.json
+WORKDIR /app
+COPY --chown=10001:10001 target/chatbot-0.0.1-SNAPSHOT.jar /app/chatbot.jar
 
-ENV GOOGLE_APPLICATION_CREDENTIALS=/app/credentials.json
+USER 10001:10001
+EXPOSE 8080
 
-CMD ["java", "-jar", "/usr/src/chatbot.jar", "--spring.config.location=file:/opt/conf/application.properties"]
+ENTRYPOINT ["java", "-jar", "/app/chatbot.jar"]

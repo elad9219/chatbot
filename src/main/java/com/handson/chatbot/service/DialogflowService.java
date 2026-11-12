@@ -1,5 +1,7 @@
 package com.handson.chatbot.service;
 
+import com.google.api.gax.core.FixedCredentialsProvider;
+import com.google.auth.oauth2.ServiceAccountCredentials;
 import com.google.cloud.dialogflow.v2.Context;
 import com.google.cloud.dialogflow.v2.DetectIntentRequest;
 import com.google.cloud.dialogflow.v2.QueryInput;
@@ -10,10 +12,16 @@ import com.google.cloud.dialogflow.v2.SessionsClient;
 import com.google.cloud.dialogflow.v2.SessionsSettings;
 import com.google.cloud.dialogflow.v2.TextInput;
 import jakarta.annotation.PreDestroy;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.List;
 
 @Service
 public class DialogflowService {
@@ -26,8 +34,9 @@ public class DialogflowService {
     private SessionsClient client;
     private boolean closed;
 
-    public DialogflowService() {
-        this(() -> SessionsClient.create(clientSettings().build()));
+    @Autowired
+    public DialogflowService(@Value("${dialogflow.credentials.json:}") String credentialsJson) {
+        this(() -> SessionsClient.create(clientSettings(credentialsJson).build()));
     }
 
     DialogflowService(ClientFactory clientFactory) {
@@ -38,6 +47,26 @@ public class DialogflowService {
         SessionsSettings.Builder settings = SessionsSettings.newBuilder();
         settings.detectIntentSettings()
                 .setSimpleTimeoutNoRetriesDuration(RPC_TIMEOUT);
+        return settings;
+    }
+
+    static SessionsSettings.Builder clientSettings(String credentialsJson) throws IOException {
+        SessionsSettings.Builder settings = clientSettings();
+        if (!credentialsJson.isBlank()) {
+            try (var input = new ByteArrayInputStream(
+                    credentialsJson.getBytes(StandardCharsets.UTF_8))) {
+                ServiceAccountCredentials credentials = ServiceAccountCredentials.fromStream(input);
+                if (!PROJECT_ID.equals(credentials.getProjectId())
+                        || !URI.create("https://oauth2.googleapis.com/token")
+                        .equals(credentials.getTokenServerUri())) {
+                    throw new IOException("Unsupported Dialogflow credential configuration");
+                }
+                settings.setCredentialsProvider(FixedCredentialsProvider.create(
+                        credentials.createScoped(List.of("https://www.googleapis.com/auth/cloud-platform"))));
+            } catch (IOException | IllegalArgumentException exception) {
+                throw new IOException("Invalid Dialogflow credential configuration");
+            }
+        }
         return settings;
     }
 
